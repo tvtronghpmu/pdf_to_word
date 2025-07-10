@@ -114,21 +114,3 @@ if st.button("Chuyển đổi"):
 
 # --- Chú thích thêm ---
 st.markdown("---")
-st.markdown("""
-### **Hướng dẫn và Giải thích**
-1.  **Cài đặt Tesseract-OCR:**
-    * Bạn **BẮT BUỘC** phải cài đặt Tesseract-OCR trên máy tính của mình. Truy cập [trang chủ Tesseract](https://github.com/tesseract-ocr/tesseract/wiki) để xem hướng dẫn cài đặt cho Windows, macOS, hoặc Linux.
-    * Trong quá trình cài đặt, hãy chắc chắn bạn đã chọn cài đặt cả gói ngôn ngữ tiếng Việt (Vietnamese).
-2.  **Cài đặt thư viện Python:**
-    * Mở terminal hoặc command prompt và chạy lệnh sau:
-        ```bash
-        pip install streamlit pymupdf Pillow pytesseract python-docx
-        ```
-3.  **Chạy ứng dụng:**
-    * Lưu đoạn code trên thành một file (ví dụ: `app.py`).
-    * Mở terminal, di chuyển đến thư mục chứa file `app.py` và chạy lệnh:
-        ```bash
-        streamlit run app.py
-        ```
-    * Một tab mới trên trình duyệt sẽ tự động mở ra với giao diện ứng dụng.
-""")
