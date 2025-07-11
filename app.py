@@ -5,16 +5,18 @@ import pytesseract
 from docx import Document
 import os
 import io
+import re # Thư viện xử lý biểu thức chính quy (Regular Expression)
 
-# --- CÀI ĐẶT BAN ĐẦU ---
-
-# --- Cấu hình đường dẫn Tesseract (QUAN TRỌNG) ---
-# Dòng này rất quan trọng nếu bạn cài Tesseract ở một vị trí không chuẩn.
-# Ví dụ trên Windows:
-#pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
-# Trên macOS/Linux, thường thì không cần nếu bạn đã thêm vào PATH.
-# Hãy chắc chắn rằng bạn đã cài đặt Tesseract-OCR trên máy của mình.
-# Hướng dẫn cài đặt: https://github.com/tesseract-ocr/tesseract
+# --- TẠO HÀM LÀM SẠCH ---
+def sanitize_text_for_xml(text_string: str) -> str:
+    """
+    Hàm này loại bỏ các ký tự không tương thích với XML từ một chuỗi.
+    Cụ thể là các ký tự điều khiển C0 và C1, ngoại trừ tab, xuống dòng và về đầu dòng.
+    """
+    if not isinstance(text_string, str):
+        return ""
+    # Sử dụng regex để tìm và thay thế các ký tự điều khiển không hợp lệ bằng chuỗi rỗng
+    return re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f]', '', text_string)
 
 # --- Tạo thư mục lưu file output ---
 output_folder = "converted_docs"
@@ -39,10 +41,11 @@ def convert_pdf_to_word(uploaded_file):
         for page_num in range(len(pdf_document)):
             page = pdf_document.load_page(page_num)
             
-            # --- 1. Trích xuất văn bản thuần túy ---
+            # --- 1. Trích xuất và làm sạch văn bản thuần túy ---
             text = page.get_text("text")
-            if text.strip():  # Nếu có văn bản, thêm vào file Word
-                doc.add_paragraph(text)
+            cleaned_text = sanitize_text_for_xml(text)
+            if cleaned_text.strip():
+                doc.add_paragraph(cleaned_text)
 
             # --- 2. Trích xuất hình ảnh và sử dụng OCR ---
             image_list = page.get_images(full=True)
@@ -52,16 +55,16 @@ def convert_pdf_to_word(uploaded_file):
                 base_image = pdf_document.extract_image(xref)
                 image_bytes = base_image["image"]
                 
-                # Chuyển đổi bytes hình ảnh sang đối tượng Image của Pillow
                 image = Image.open(io.BytesIO(image_bytes))
 
                 # Sử dụng Tesseract để nhận diện văn bản từ hình ảnh
-                # Chỉ định ngôn ngữ là tiếng Việt + tiếng Anh để tăng độ chính xác
                 ocr_text = pytesseract.image_to_string(image, lang='vie+eng')
+                # Làm sạch văn bản từ OCR
+                cleaned_ocr_text = sanitize_text_for_xml(ocr_text)
                 
-                if ocr_text.strip():
+                if cleaned_ocr_text.strip():
                     doc.add_paragraph("[Văn bản từ hình ảnh (OCR)]:")
-                    doc.add_paragraph(ocr_text)
+                    doc.add_paragraph(cleaned_ocr_text)
 
             # Thêm dấu ngắt trang để giữ nguyên bố cục tương đối
             if page_num < len(pdf_document) - 1:
@@ -77,31 +80,28 @@ def convert_pdf_to_word(uploaded_file):
         return output_path
 
     except Exception as e:
-        st.error(f"Đã xảy ra lỗi: {e}")
+        # Hiển thị lỗi một cách chi tiết hơn để dễ gỡ rối
+        st.error(f"Đã xảy ra lỗi trong quá trình xử lý: {e}")
+        # Ghi log lỗi ra console của Streamlit để xem chi tiết
+        print(f"Error details: {e}")
         return None
 
 # --- GIAO DIỆN NGƯỜI DÙNG VỚI STREAMLIT ---
 
-# --- Tiêu đề của ứng dụng ---
 st.title("Chuyển đổi PDF sang Word (với OCR) 📄➡️📝")
 st.write("Tải lên file PDF của bạn, ứng dụng sẽ chuyển đổi nó sang định dạng .docx.")
-st.write("Nếu PDF chứa hình ảnh, công nghệ OCR (Nhận dạng ký tự quang học) sẽ được sử dụng để trích xuất văn bản từ những hình ảnh đó.")
 
-# --- Mục tải file lên ---
 uploaded_file = st.file_uploader("Chọn một file PDF", type=["pdf"])
 
-# --- Nút thực hiện chuyển đổi ---
 if st.button("Chuyển đổi"):
     if uploaded_file is not None:
-        with st.spinner('Đang xử lý... Quá trình này có thể mất vài phút tùy thuộc vào file PDF.'):
-            # Gọi hàm chuyển đổi
+        with st.spinner('Đang xử lý... Quá trình này có thể mất vài phút.'):
             result_path = convert_pdf_to_word(uploaded_file)
         
         if result_path:
             st.success("Chuyển đổi thành công!")
             st.info(f"File đã được lưu tại thư mục cục bộ: `{result_path}`")
             
-            # Cung cấp nút để tải file đã chuyển đổi về trình duyệt
             with open(result_path, "rb") as f:
                 st.download_button(
                     label="Tải file Word (.docx)",
@@ -111,6 +111,3 @@ if st.button("Chuyển đổi"):
                 )
     else:
         st.warning("Vui lòng tải lên một file PDF trước.")
-
-# --- Chú thích thêm ---
-st.markdown("---")
